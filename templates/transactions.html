@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% set active_page = 'transactions' %}
+
+{% block title %}Reconciled Transactions | OpEx_Guard{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">Reconciled Transactions & Audit Source</h2>
+        <p style="color: var(--text-muted);">View reconciled bank entries, edit categories with human-in-the-loop feedback, and audit matching receipts.</p>
+    </div>
+    
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <input type="text" id="table-search" placeholder="Search vendor or category..." style="padding: 0.5rem 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.875rem; width: 240px;">
+        <select id="status-filter" style="padding: 0.5rem 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.875rem;">
+            <option value="all">All Statuses</option>
+            <option value="reconciled">Reconciled Only</option>
+            <option value="unreconciled">Unreconciled Only</option>
+            <option value="flagged">Flagged Only</option>
+        </select>
+    </div>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-container" style="border: none;">
+        <table id="transactions-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Vendor (Normalized / Raw)</th>
+                    <th>Category (Editable)</th>
+                    <th>Match Confidence</th>
+                    <th style="text-align: right;">Amount</th>
+                    <th>Status</th>
+                    <th>Audit Receipt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if transactions %}
+                    {% for tx in transactions %}
+                    <tr class="tx-row" data-status="{{ tx.status }}" data-vendor="{{ tx.normalized_vendor | lower }}" data-category="{{ tx.category | lower }}">
+                        <td style="color: var(--text-muted); font-size: 0.825rem;">{{ tx.date }}</td>
+                        <td>
+                            <div style="font-weight: 600;">{{ tx.normalized_vendor }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ tx.raw_vendor }}</div>
+                        </td>
+                        <td>
+                            <select class="category-select" data-tx-id="{{ tx.id }}" data-original="{{ tx.category }}">
+                                {% for c in ['Rent & Facilities', 'SaaS & Software', 'Marketing & Ads', 'Travel & Entertainment', 'Office Supplies', 'Payroll', 'Professional Services', 'Utilities', 'General OPEX', 'Uncategorized'] %}
+                                    <option value="{{ c }}" {% if tx.category == c %}selected{% endif %}>{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            {% set conf_pct = (tx.confidence * 100) | round | int %}
+                            <span class="badge {% if conf_pct >= 90 %}badge-reconciled{% elif conf_pct >= 65 %}badge-medium{% else %}badge-low{% endif %}">
+                                {{ conf_pct }}%
+                            </span>
+                        </td>
+                        <td style="text-align: right; font-weight: 700;">${{ "{:,.2f}".format(tx.amount) }}</td>
+                        <td>
+                            {% if tx.status == 'reconciled' %}
+                                <span class="badge badge-reconciled">Reconciled</span>
+                            {% else %}
+                                <span class="badge badge-{{ tx.status }}">{{ tx.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tx.matched_receipt %}
+                                <button class="btn btn-secondary btn-sm btn-view-receipt"
+                                        data-vendor="{{ tx.matched_receipt.vendor }}"
+                                        data-amount="{{ tx.matched_receipt.amount }}"
+                                        data-date="{{ tx.matched_receipt.date }}"
+                                        data-receipt-text="{{ tx.matched_receipt.raw_text }}">
+                                    📄 Audit Receipt
+                                </button>
+                            {% elif tx.status == 'reconciled' %}
+                                <button class="btn btn-secondary btn-sm btn-view-receipt"
+                                        data-vendor="{{ tx.normalized_vendor }}"
+                                        data-amount="{{ tx.amount }}"
+                                        data-date="{{ tx.date }}"
+                                        data-receipt-text="Matched Receipt Audit: {{ tx.normalized_vendor }} (Amount: ${{ '{:,.2f}'.format(tx.amount) }})">
+                                    📄 Audit Receipt
+                                </button>
+                            {% else %}
+                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">No Receipt</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No transactions found.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('table-search');
+    const statusFilter = document.getElementById('status-filter');
+    const rows = document.querySelectorAll('.tx-row');
+
+    function filterTable() {
+        const query = searchInput.value.toLowerCase().trim();
+        const selectedStatus = statusFilter.value;
+
+        rows.forEach(row => {
+            const vendor = row.dataset.vendor || '';
+            const category = row.dataset.category || '';
+            const status = row.dataset.status || '';
+
+            const matchesQuery = !query || vendor.includes(query) || category.includes(query);
+            const matchesStatus = selectedStatus === 'all' || status === selectedStatus;
+
+            if (matchesQuery && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    searchInput.addEventListener('input', filterTable);
+    statusFilter.addEventListener('change', filterTable);
+});
+</script>
+{% endblock %}

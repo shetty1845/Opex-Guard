@@ -1,0 +1,11 @@
+Delta Airlines E-Ticket & Billing Receipt
+Booking Reference: #DL-88219A
+Date: 2026-07-18
+
+Passenger: Jane Doe (Executive Travel)
+Flight: SFO -> JFK Roundtrip
+Airfare Subtotal: $620.00
+Baggage & Airport Fees: $60.00
+
+Total Paid: $680.00
+Payment Method: Company Card ****8812

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OpEx_Guard | Small Business Expense Review{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <a href="/" class="brand">
+            <div class="brand-icon">🛡️</div>
+            <div>
+                <span class="brand-title">OpEx_Guard</span>
+                <span class="brand-tag">Expense Review Agent</span>
+            </div>
+        </a>
+
+        <nav class="nav-links">
+            <a href="{{ url_for('dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('transactions_page') }}" class="nav-link {% if active_page == 'transactions' %}active{% endif %}">Transactions</a>
+            <a href="{{ url_for('anomalies_page') }}" class="nav-link {% if active_page == 'anomalies' %}active{% endif %}">
+                Anomalies
+                {% if active_anomalies_count and active_anomalies_count > 0 %}
+                    <span class="badge badge-high" style="margin-left: 4px;">{{ active_anomalies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{{ url_for('upload_page') }}" class="nav-link {% if active_page == 'upload' %}active{% endif %}">Ingest & Upload</a>
+            <a href="{{ url_for('actions_page') }}" class="nav-link {% if active_page == 'actions' %}active{% endif %}">Actions</a>
+        </nav>
+
+        <div class="header-actions">
+            <button class="btn btn-secondary btn-sm btn-seed-data">⚡ Load Sample Dataset</button>
+            <a href="{{ url_for('upload_page') }}" class="btn btn-primary btn-sm">+ Upload Files</a>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global Receipt Audit Modal -->
+    <div class="modal-backdrop" id="receipt-modal-backdrop">
+        <div class="modal">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title" id="modal-vendor">Receipt Audit Source</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">Reconciled Document Audit</p>
+                </div>
+                <button class="btn btn-secondary btn-sm btn-close-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem; padding: 0.75rem; background-color: var(--bg-main); border-radius: 6px;">
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">AMOUNT</div>
+                        <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);" id="modal-amount">$0.00</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">DATE</div>
+                        <div style="font-weight: 600;" id="modal-date">-</div>
+                    </div>
+                </div>
+                <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">EXTRACTED RECEIPT CONTENT:</div>
+                <pre id="modal-raw-text" style="background-color: #1E293B; color: #E2E8F0; padding: 1rem; border-radius: 6px; font-size: 0.8rem; white-space: pre-wrap; font-family: monospace; max-height: 250px; overflow-y: auto;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm btn-close-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

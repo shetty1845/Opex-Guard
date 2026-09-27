@@ -1,0 +1,13 @@
+Staples Office Supply Store #104
+100 Main Street, San Francisco, CA
+RECEIPT #STP-992110
+Date: 2026-07-10
+
+Itemized Purchases:
+- 10x Ergonomic Office Chairs: $350.00
+- 5x Printer Paper Boxes: $100.00
+Subtotal: $450.00
+Tax: $35.20
+
+Total: $485.20
+Status: PAID (Corporate Credit Card)

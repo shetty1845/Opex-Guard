@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% set active_page = 'dashboard' %}
+
+{% block title %}Dashboard | OpEx_Guard{% endblock %}
+
+{% block content %}
+<!-- Executive Summary Section -->
+<div class="exec-summary-card">
+    <div class="summary-header">
+        <div class="summary-title">
+            <span>⚡ 2-Minute Executive Summary</span>
+            <span class="summary-badge">Agentic Insights</span>
+        </div>
+        <div class="mcp-strip">
+            <span class="mcp-pill">● Plaid Live Sync</span>
+            <span class="mcp-pill">● Gmail Receipt Search</span>
+            <span class="mcp-pill">● Slack Action Posting</span>
+            <span class="mcp-pill">● Xero Ledger Sync</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">
+            Updated: {{ summary.created_at if summary else 'Just Now' }}
+        </div>
+    </div>
+    <div class="summary-content">
+        {% if summary and summary.summary_text %}
+            {{ summary.summary_text | safe }}
+        {% else %}
+            No executive summary available. Please upload a bank statement or click <strong>'Load Sample Dataset'</strong> above.
+        {% endif %}
+    </div>
+</div>
+
+<!-- KPI Stat Cards -->
+<div class="grid-kpi">
+    <div class="kpi-card">
+        <div class="kpi-label">TOTAL MONTHLY SPEND</div>
+        <div class="kpi-value">${{ "{:,.2f}".format(summary.total_spend) if summary else "0.00" }}</div>
+        <div class="kpi-sub {% if summary and summary.mom_growth_pct > 0 %}negative{% else %}positive{% endif %}">
+            <span>{% if summary and summary.mom_growth_pct >= 0 %}▲{% else %}▼{% endif %} {{ summary.mom_growth_pct if summary else 0.0 }}%</span>
+            <span style="color: var(--text-muted); font-weight: 400;">vs prior month</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">RECONCILED WITH RECEIPTS</div>
+        <div class="kpi-value">{{ summary.reconciled_pct if summary else 0.0 }}%</div>
+        <div class="kpi-sub positive">
+            <span>✓ {{ reconciled_count }} of {{ total_count }} transactions</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">ACTIVE ANOMALIES</div>
+        <div class="kpi-value" style="color: {% if active_anomalies_count > 0 %}#DC2626{% else %}var(--text-main){% endif %};">
+            {{ active_anomalies_count }}
+        </div>
+        <div class="kpi-sub negative">
+            <span>🚨 Requires attention</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">PRIMARY SPEND BUCKET</div>
+        <div class="kpi-value" style="font-size: 1.35rem;">
+            {% if summary and summary.top_categories and summary.top_categories|length > 0 %}
+                {{ summary.top_categories[0].category }}
+            {% else %}
+                -
+            {% endif %}
+        </div>
+        <div class="kpi-sub" style="color: var(--text-muted);">
+            {% if summary and summary.top_categories and summary.top_categories|length > 0 %}
+                ${{ "{:,.2f}".format(summary.top_categories[0].amount) }} ({{ summary.top_categories[0].pct }}%)
+            {% else %}
+                $0.00
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="grid-2col">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Spend Breakdown by Category</h3>
+        </div>
+        <div style="position: relative; height: 260px;">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Top 5 Expense Categories</h3>
+        </div>
+        <div class="table-container" style="border: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: right;">% Budget</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if summary and summary.top_categories %}
+                        {% for cat in summary.top_categories %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ cat.category }}</td>
+                            <td style="text-align: right; font-weight: 600;">${{ "{:,.2f}".format(cat.amount) }}</td>
+                            <td style="text-align: right;">
+                                <span class="badge badge-low">{{ cat.pct }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No category data available</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Recent Transactions & Audit Source</h3>
+        <a href="{{ url_for('transactions_page') }}" class="btn btn-secondary btn-sm">View All Transactions →</a>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Vendor / Description</th>
+                    <th>Category</th>
+                    <th style="text-align: right;">Amount</th>
+                    <th>Status</th>
+                    <th>Audit Receipt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if transactions %}
+                    {% for tx in transactions[:7] %}
+                    <tr>
+                        <td style="color: var(--text-muted); font-size: 0.825rem;">{{ tx.date }}</td>
+                        <td>
+                            <div style="font-weight: 600;">{{ tx.normalized_vendor }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ tx.raw_vendor }}</div>
+                        </td>
+                        <td>
+                            <select class="category-select" data-tx-id="{{ tx.id }}" data-original="{{ tx.category }}">
+                                {% for c in ['Rent & Facilities', 'SaaS & Software', 'Marketing & Ads', 'Travel & Entertainment', 'Office Supplies', 'Payroll', 'Professional Services', 'Utilities', 'General OPEX', 'Uncategorized'] %}
+                                    <option value="{{ c }}" {% if tx.category == c %}selected{% endif %}>{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td style="text-align: right; font-weight: 700;">${{ "{:,.2f}".format(tx.amount) }}</td>
+                        <td>
+                            {% if tx.status == 'reconciled' %}
+                                <span class="badge badge-reconciled">Reconciled</span>
+                            {% else %}
+                                <span class="badge badge-{{ tx.status }}">{{ tx.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tx.matched_receipt %}
+                                <button class="btn btn-secondary btn-sm btn-view-receipt"
+                                        data-vendor="{{ tx.matched_receipt.vendor }}"
+                                        data-amount="{{ tx.matched_receipt.amount }}"
+                                        data-date="{{ tx.matched_receipt.date }}"
+                                        data-receipt-text="{{ tx.matched_receipt.raw_text }}">
+                                    📄 Audit Receipt
+                                </button>
+                            {% elif tx.status == 'reconciled' %}
+                                <button class="btn btn-secondary btn-sm btn-view-receipt"
+                                        data-vendor="{{ tx.normalized_vendor }}"
+                                        data-amount="{{ tx.amount }}"
+                                        data-date="{{ tx.date }}"
+                                        data-receipt-text="Matched Receipt Audit: {{ tx.normalized_vendor }} (Amount: ${{ '{:,.2f}'.format(tx.amount) }})">
+                                    📄 Audit Receipt
+                                </button>
+                            {% else %}
+                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">No Receipt</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No transactions loaded. Click <strong>'Load Sample Dataset'</strong> above to test!</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const ctx = document.getElementById('categoryChart');
+    if (!ctx) return;
+
+    {% if summary and summary.top_categories %}
+        const labels = {{ summary.top_categories | map(attribute='category') | list | tojson }};
+        const data = {{ summary.top_categories | map(attribute='amount') | list | tojson }};
+    {% else %}
+        const labels = ['No Data'];
+        const data = [1];
+    {% endif %}
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    '#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE', '#E0F2FE'
+                ],
+                borderWidth: 2,
+                borderColor: '#FFFFFF'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

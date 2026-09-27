@@ -1,0 +1,12 @@
+Amazon Web Services Inc.
+410 Terry Ave N, Seattle, WA
+INVOICE #AWS-2026-07-02
+Date: 2026-07-02
+
+Cloud Infrastructure Monthly Billing:
+EC2 Compute Instance: $210.00
+S3 Storage Bucket: $110.00
+Tax: $22.50
+
+Total Amount: $342.50
+Paid via Visa ending in 4921
